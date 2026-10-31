@@ -1,13 +1,14 @@
+import requests, sqlite3, time
+from bs4 import BeautifulSoup
+
 def get_page(url):
-    import requests
-    from bs4 import BeautifulSoup
     try:
         resp = requests.get(url, timeout=7)
         resp.raise_for_status()
     except Exception as e:
         print("请求失败:", e)
-        return 0
-        
+        return None
+
     return BeautifulSoup(resp.text, "html.parser")
     
 def parse_page(soup):
@@ -20,7 +21,6 @@ def parse_page(soup):
     return data
 
 def save(data):
-    import sqlite3
     conn = sqlite3.connect("quote.db")
     cur = conn.cursor()
 
@@ -39,11 +39,25 @@ def save(data):
     conn.commit()
     conn.close()
 
+def clear_db():
+    conn = sqlite3.connect("quote.db")
+    cur = conn.cursor()
+    cur.execute("""
+            CREATE TABLE IF NOT EXISTS quotes
+            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+            text TEXT, author TEXT, tags TEXT)
+            """)
+    cur.execute("DELETE FROM quotes")
+    conn.commit()
+    conn.close()
+
 def main():
-    import time
+    clear_db()
+    
     BASE = "https://quotes.toscrape.com"
     url = "/"
     start = time.time()
+    print("查询数据中...")
 
     while url:
         soup = get_page(BASE + url)
@@ -54,7 +68,6 @@ def main():
         url = next_tag.find("a")["href"] if next_tag else None
         time.sleep(0.2)
 
-    import sqlite3
     conn = sqlite3.connect("quote.db")
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM quotes")
@@ -65,14 +78,4 @@ def main():
 
     print("全部抓完...", f"共耗时{over-start:.2f}")
 
-def clear_db():
-    import sqlite3
-    conn = sqlite3.connect("quote.db")
-    cur = conn.cursor()
-    cur.execute("CREATE TABLE IF NOT EXISTS quotes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, author TEXT, tags TEXT)")
-    cur.execute("DELETE FROM quotes")
-    conn.commit()
-    conn.close()
-
-clear_db()
 main()
